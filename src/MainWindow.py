@@ -17,51 +17,59 @@ class Main(QtWidgets.QMainWindow, Ui_tableWidget.Ui_MainWindow):
         
 
     def addButton(self, pages_num, selected):
+        for i in reversed(range(self.paging_buttons.count())): 
+            self.paging_buttons.itemAt(i).widget().deleteLater()
+        
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        
-        self.first_page_button = QtWidgets.QPushButton("<<")
-        self.first_page_button.setSizePolicy(sizePolicy)
-        self.paging_buttons.addWidget( self.first_page_button)
-        
-        # for x in range(selected, selected + 5):
-        #     if x <= pages_num:
-        #         pageButton = QtWidgets.QPushButton(str(x))
-        #         pageButton.setObjectName(str(x))
-        #         pageButton.setSizePolicy(sizePolicy)
-        #         pageButton.clicked.connect(lambda _: print(x))
-        #         self.paging_buttons.addWidget(pageButton)
                 
-        #         print(self.findChild(QtWidgets.QPushButton, str(x)))
-                
-        #         if self.selectedPage == x:
-        #             pageButton.setEnabled(False)
+        first_page_button = QtWidgets.QPushButton("<<")
+        first_page_button.setSizePolicy(sizePolicy)
+        self.paging_buttons.addWidget( first_page_button)
+        first_page_button.clicked.connect(lambda _: self.setPage(1))
         
-        buttons = []
-        for x in range(selected, selected + 5):
+        before_page_button = QtWidgets.QPushButton("...")
+        before_page_button.setSizePolicy(sizePolicy)
+        self.paging_buttons.addWidget( before_page_button)
+        before_page_button.clicked.connect(lambda _: self.setPage(selected - 1))
+        
+        pageRange = int((selected / 6) + 1)
+        print(pageRange)
+        
+        for x in range(pageRange, pageRange + 5):
             if x <= pages_num:
                 pageButton = QtWidgets.QPushButton(str(x))
                 pageButton.setObjectName(str(x))
                 pageButton.setSizePolicy(sizePolicy)
-                pageButton.clicked.connect(lambda _: print(str(x)))
-                buttons.append(pageButton)
+                pageButton.clicked.connect(self.setPage)
+                self.paging_buttons.addWidget(pageButton)
+                                
+                if selected == x:
+                    pageButton.setEnabled(False)
         
-        for button in buttons:
-            self.paging_buttons.addWidget(button)
-                    
-        self.last_page_button = QtWidgets.QPushButton(">>")
-        self.last_page_button.setSizePolicy(sizePolicy)
-        self.paging_buttons.addWidget( self.last_page_button)
+        after_page_button = QtWidgets.QPushButton("...")
+        after_page_button.setSizePolicy(sizePolicy)
+        self.paging_buttons.addWidget( after_page_button)  
+            
+        last_page_button = QtWidgets.QPushButton(">>")
+        last_page_button.setSizePolicy(sizePolicy)
+        self.paging_buttons.addWidget( last_page_button)
         
-        if self.selectedPage == 1:
-            self.first_page_button.setEnabled(False)
-        if self.selectedPage == self.maxPage:
-            self.last_page_button.setEnabled(False)
+        if selected == 1:
+            first_page_button.setEnabled(False)
+            before_page_button.setEnabled(False)
+        if pages_num == selected:
+            last_page_button.setEnabled(False)
+            after_page_button.setEnabled(False)
         
     
-    def setPage(self, n):
-        pass
+    def setPage(self, selected = 0):
+        if selected == 0:
+            selected = int(self.sender().objectName())
+        self.addButton(self.maxPage, selected)
+        
+        
     
 app = QtWidgets.QApplication(sys.argv)
 app.setStyle("Fusion")
