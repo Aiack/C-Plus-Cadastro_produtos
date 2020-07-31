@@ -1,11 +1,12 @@
-from src.config.Firebird import Firebird
+from PyQt5 import QtCore, QtGui, QtWidgets
+import sys
+import time
 
-class main():
-    def __init__(self):
-        self.db = Firebird()
-        
-        print('main :', self.db)
+from src.Table_teste import table_teste
 
 if __name__ == "__main__":
-    main()
-    from src import Table_teste
+    app = QtWidgets.QApplication(sys.argv)
+    app.setStyle("Fusion")
+    window = table_teste()
+    sys.exit(app.exec_())
+    

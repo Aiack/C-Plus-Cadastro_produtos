@@ -2,6 +2,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from src.components.ui import Ui_tableWidget
 import math
 import sys
+import time
 
 class QTableWidgetHandler(QtWidgets.QMainWindow):
     def __init__(self, Qlayout, qTableWidget):
@@ -10,26 +11,44 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
         
         
     def fillTable(self, data):
-        self.qTableWidget.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
-        self.qTableWidget.setColumnCount(len(data[0]))
+        start = time.time()
+        #SLOW FUNCTION
+        """This function fill the table \n
+        The data have to be a dictionary with keys columns and data"""
         
-        self.qTableWidget.setRowCount(len(data))
+        #Columns Headers
+        self.qTableWidget.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
+        self.qTableWidget.setColumnCount(len(data['columns']))
+        self.qTableWidget.setHorizontalHeaderLabels(data['columns'])
+        
+        self.qTableWidget.setRowCount(len(data['data']))
         self.qTableWidget.setAlternatingRowColors(True)
         
         self.qTableWidget.setSortingEnabled(False)
         
         if data:
-            for column in range(len(data[0])):
-                for row in range(len(data)):
-                    newitem = QtWidgets.QTableWidgetItem((data[row][column]))
+            for column in range(len(data['columns'])):
+                for row in range(len(data['data'])):
+                    newitem = QtWidgets.QTableWidgetItem((str(data['data'][row][column])))
                     self.qTableWidget.setItem(row, column, newitem)
-                    
-        self.qTableWidget.resizeColumnsToContents()
+        start = time.time()
+        #self.qTableWidget.resizeColumnsToContents()
         self.qTableWidget.setSortingEnabled(True)
+        print(time.time() - start)
         
-    def setupPaging(self, maxPage = 1):
+        
+    def setupPaging(self, dataLen = None, maxPage = 1, pagingFunction = None):
+        """Setup the paging system \n
+        It acepts a function for paging"""
+        self.dataLen = dataLen
+        self.pagingFunction = pagingFunction
+        
         self.selectedPage = 1
-        self.maxPage = maxPage
+        if self.dataLen:
+            self.maxPage = dataLen / 100
+        else:
+            self.maxPage = maxPage
+            
         
         self.buttonLayout = QtWidgets.QHBoxLayout()
         self.buttonLayout.setObjectName("buttonLayout")
@@ -46,6 +65,11 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         
+        if self.dataLen:
+            dataInfoLabel = QtWidgets.QLabel()
+            dataInfoLabel.setText(f"{((self.selectedPage - 1) * 100) + 1} - {self.selectedPage * 100} de {self.dataLen}")
+            self.buttonLayout.addWidget( dataInfoLabel)
+        
         leftHorizontalSpacer = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.buttonLayout.addItem(leftHorizontalSpacer)
                 
@@ -53,13 +77,13 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
         first_page_button.setSizePolicy(sizePolicy)
         first_page_button.setMaximumSize(QtCore.QSize(40, 16777215))
         self.buttonLayout.addWidget( first_page_button)
-        first_page_button.clicked.connect(lambda _: self.setPage(1))
+        first_page_button.clicked.connect(lambda _: self.updatePage(1))
         
         before_page_button = QtWidgets.QPushButton("...")
         before_page_button.setSizePolicy(sizePolicy)
         before_page_button.setMaximumSize(QtCore.QSize(40, 16777215))
         self.buttonLayout.addWidget( before_page_button)
-        before_page_button.clicked.connect(lambda _: self.setPage(self.selectedPage - 1))
+        before_page_button.clicked.connect(lambda _: self.updatePage(self.selectedPage - 1))
         
         pageRangeIndex = (math.ceil(self.selectedPage / 5) - 1) * 5 + 1
                 
@@ -69,7 +93,7 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
                 pageButton.setMaximumSize(QtCore.QSize(40, 16777215))
                 pageButton.setObjectName(str(x))
                 pageButton.setSizePolicy(sizePolicy)
-                pageButton.clicked.connect(self.setPage)
+                pageButton.clicked.connect(self.updatePage)
                 self.buttonLayout.addWidget(pageButton)
                                 
                 if self.selectedPage == x:
@@ -79,16 +103,16 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
         after_page_button.setMaximumSize(QtCore.QSize(40, 16777215))
         after_page_button.setSizePolicy(sizePolicy)
         self.buttonLayout.addWidget( after_page_button)
-        after_page_button.clicked.connect(lambda _: self.setPage(self.selectedPage + 1))
+        after_page_button.clicked.connect(lambda _: self.updatePage(self.selectedPage + 1))
             
         last_page_button = QtWidgets.QPushButton(">>")
         last_page_button.setMaximumSize(QtCore.QSize(40, 16777215))
         last_page_button.setSizePolicy(sizePolicy)
         self.buttonLayout.addWidget( last_page_button)
-        last_page_button.clicked.connect(lambda _: self.setPage(self.maxPage))
+        last_page_button.clicked.connect(lambda _: self.updatePage(self.maxPage))
         
-        rightHorizontalSpacer = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.buttonLayout.addItem(rightHorizontalSpacer)
+        # rightHorizontalSpacer = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        # self.buttonLayout.addItem(rightHorizontalSpacer)
         
         if self.selectedPage == 1:
             first_page_button.setEnabled(False)
@@ -98,11 +122,16 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
             after_page_button.setEnabled(False)
         
     
-    def setPage(self, selected = 0):
-        if selected == 0:
+    def updatePage(self, selectedPage = 0):
+        if selectedPage == 0:
             self.selectedPage = int(self.sender().objectName())
         else:
-            self.selectedPage = selected
+            self.selectedPage = selectedPage
+        
+        if self.pagingFunction:
+            self.fillTable(self.pagingFunction(page = self.selectedPage))
+            
+        
         self.pagingLogic()
         
     def cleanLayout(self, layout):

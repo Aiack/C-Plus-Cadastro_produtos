@@ -6,4 +6,4 @@ class Firebird():
                                 'sysdba',
                                 'masterkey')
 
-        self.cur = cur = con.cursor()
+        self.cur = con.cursor()
