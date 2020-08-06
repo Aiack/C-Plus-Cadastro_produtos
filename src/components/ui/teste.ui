@@ -27,6 +27,9 @@
        <widget class="QTableView" name="tableView"/>
       </item>
       <item>
+       <widget class="QComboBox" name="comboBox"/>
+      </item>
+      <item>
        <layout class="QHBoxLayout" name="paging_buttons">
         <property name="sizeConstraint">
          <enum>QLayout::SetDefaultConstraint</enum>

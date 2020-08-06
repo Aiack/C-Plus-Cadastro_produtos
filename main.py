@@ -9,4 +9,3 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
     window = table_teste()
     sys.exit(app.exec_())
-    

@@ -19,11 +19,10 @@ class table_teste(QtWidgets.QMainWindow, Ui_tableWidget.Ui_MainWindow):
         fBprodutos = FBprodutos(cur)
         
         
-        qTable = QTableWidgetHandler(self.table_with_paging, self.tableWidget)
-        qTable.setupPaging(dataLen = fBprodutos.rowsCount, pagingFunction = fBprodutos.getPaged)
+        QTableWidgetHandler(self.table_with_paging, self.tableWidget, dataBaseAPI = fBprodutos, addPaging=True, addFilter=True)
                         
-        qTable.fillTable(fBprodutos.getPaged())
         
+                
         self.show()
         
         

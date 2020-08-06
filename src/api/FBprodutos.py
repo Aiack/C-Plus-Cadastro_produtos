@@ -9,17 +9,37 @@ class FBprodutos():
                                                                         FROM rdb$relation_fields 
                                                                         WHERE rdb$relation_name=\'PRODUTO\' 
                                                                         ORDER BY rdb$field_position""").fetchall()]
-        
-        self.rowsCount = self.getRowsCount()
-                
+                        
+        self.dataLen = self.getDataLen()
+        self.totalLen = self.dataLen
 
-    def getPaged(self, page = 1, limit = 100):
+    def get(self, page = 1, limit = 0, filter = [None, None]):
         data = {}
         data['columns'] = self.COLUMNS
-        data['data'] = self.cur.execute(f"SELECT FIRST {limit} SKIP {(page - 1) * limit} * FROM PRODUTO").fetchall()
+        
+        if limit:
+            pagingSQL = f"FIRST {limit} SKIP {(page - 1) * limit}"
+        else:
+            pagingSQL = ""
+        
+        if filter[1]:
+            filterSQL = f"WHERE {filter[0]} LIKE \'%{filter[1]}%\'"
+        else:
+            filterSQL = ""
+            
+        fullSql = f"SELECT {pagingSQL} * FROM PRODUTO {filterSQL}"
+        
+        data['data'] = self.cur.execute(fullSql).fetchall()
+        
+        if filter[1]:
+            fullSQL = f"SELECT COUNT(CODPROD) FROM PRODUTO {filterSQL}"
+            self.dataLen = self.cur.execute(fullSQL).fetchall()[0][0]
+        else:
+            self.dataLen = self.totalLen
+
         return data
     
-    def getRowsCount(self):        
-        self.rowsCount = self.cur.execute(f"SELECT COUNT(*) FROM PRODUTO").fetchone()[0]
-        
-        return self.rowsCount
+    def getDataLen(self):
+        fullSql = "SELECT COUNT(CODPROD) FROM PRODUTO"
+        return self.cur.execute(fullSql).fetchall()[0][0]
+    

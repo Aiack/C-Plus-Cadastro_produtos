@@ -1,54 +1,109 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets, QtTest
+
 from src.components.ui import Ui_tableWidget
+
 import math
 import sys
 import time
 
 class QTableWidgetHandler(QtWidgets.QMainWindow):
-    def __init__(self, Qlayout, qTableWidget):
+    def __init__(self, Qlayout, qTableWidget, dataBaseAPI = None, dataLimit = 50, addPaging = False, addFilter = False):
+        super().__init__()
         self.Qlayout = Qlayout
         self.qTableWidget = qTableWidget
         
+        if addPaging:
+            self.dataLimit = dataLimit
+        else:
+            self.dataLimit = 0
+        self.dataBaseAPI = dataBaseAPI
         
-    def fillTable(self, data):
-        start = time.time()
-        #SLOW FUNCTION
+        self.selectedPage = 1
+        
+        self.isSetupPage = False
+        
+        self.filter = [None, None]
+                
+        if addFilter:
+            self.setupFilter()
+        else:
+            self.fillTable(page = self.selectedPage, limit = self.dataLimit)
+            
+        if addPaging:
+            self.setupPaging()
+        
+    def fillTable(self, page = 1, limit = 0, filter = [None, None]):
         """This function fill the table \n
-        The data have to be a dictionary with keys columns and data"""
+        The data have to be a dictionary with keys columns and data"""            
+        self.data = self.dataBaseAPI.get(page = page, limit = limit, filter = filter)
         
         #Columns Headers
         self.qTableWidget.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
-        self.qTableWidget.setColumnCount(len(data['columns']))
-        self.qTableWidget.setHorizontalHeaderLabels(data['columns'])
+        self.qTableWidget.setColumnCount(len(self.data['columns']))
+        self.qTableWidget.setHorizontalHeaderLabels(self.data['columns'])
         
-        self.qTableWidget.setRowCount(len(data['data']))
+        self.qTableWidget.setRowCount(len(self.data['data']))
         self.qTableWidget.setAlternatingRowColors(True)
         
         self.qTableWidget.setSortingEnabled(False)
         
-        if data:
-            for column in range(len(data['columns'])):
-                for row in range(len(data['data'])):
-                    newitem = QtWidgets.QTableWidgetItem((str(data['data'][row][column])))
+        #self.qTableWidget.resizeColumnsToContents() SLOW!!
+        
+        if self.data:
+            for column in range(len(self.data['columns'])):
+                for row in range(len(self.data['data'])):
+                    newitem = QtWidgets.QTableWidgetItem((str(self.data['data'][row][column])))
                     self.qTableWidget.setItem(row, column, newitem)
-        start = time.time()
-        #self.qTableWidget.resizeColumnsToContents()
+                    
         self.qTableWidget.setSortingEnabled(True)
-        print(time.time() - start)
         
+    def setupFilter(self):
+        self.executing = False
+        name = self.qTableWidget.objectName()
+        self.qTableWidget.deleteLater()
         
-    def setupPaging(self, dataLen = None, maxPage = 1, pagingFunction = None):
+        self.filterLayout = QtWidgets.QHBoxLayout()
+        self.filterLayout.setObjectName("filterLayout")
+        self.Qlayout.addLayout(self.filterLayout)
+        
+        self.cbColunas = QtWidgets.QComboBox()
+        self.filterLayout.addWidget(self.cbColunas)
+        self.teTextFilter = QtWidgets.QLineEdit()
+        self.teTextFilter.textChanged.connect(self.filterLogic)
+        self.filterLayout.addWidget(self.teTextFilter)
+        
+        self.qTableWidget = QtWidgets.QTableWidget()
+        self.qTableWidget.setObjectName(name)
+        self.Qlayout.addWidget(self.qTableWidget)
+        
+        self.fillTable(page = self.selectedPage, limit = self.dataLimit)
+
+        for item in self.data['columns']:
+            self.cbColunas.addItem(item)
+
+    def filterLogic(self):
+        if not self.executing:
+            self.executing = True
+            QtTest.QTest.qWait(1000)
+            selectedColumn = self.cbColunas.currentText()
+            filterText = self.teTextFilter.text()
+            
+            self.selectedPage = 1
+            self.filter = [selectedColumn, filterText]
+            self.fillTable(page = self.selectedPage, limit = self.dataLimit, filter = self.filter)
+                        
+            if self.isSetupPage:
+                self.pagingLogic()
+                
+            self.executing = False
+             
+        
+    def setupPaging(self):
         """Setup the paging system \n
         It acepts a function for paging"""
-        self.dataLen = dataLen
-        self.pagingFunction = pagingFunction
-        
         self.selectedPage = 1
-        if self.dataLen:
-            self.maxPage = dataLen / 100
-        else:
-            self.maxPage = maxPage
-            
+        
+        self.isSetupPage = True
         
         self.buttonLayout = QtWidgets.QHBoxLayout()
         self.buttonLayout.setObjectName("buttonLayout")
@@ -57,6 +112,9 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
         self.pagingLogic()
 
     def pagingLogic(self):
+        self.dataLen = self.dataBaseAPI.dataLen
+        
+        self.maxPage = int((self.dataLen / self.dataLimit) + 1)
         #Clean the view
         self.cleanLayout(self.buttonLayout)
             
@@ -67,11 +125,15 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
         
         if self.dataLen:
             dataInfoLabel = QtWidgets.QLabel()
-            dataInfoLabel.setText(f"{((self.selectedPage - 1) * 100) + 1} - {self.selectedPage * 100} de {self.dataLen}")
+            dataInfoLabel.setText(f"{((self.selectedPage - 1) * self.dataLimit) + 1} - {self.selectedPage * self.dataLimit} de {self.dataLen} registros")
             self.buttonLayout.addWidget( dataInfoLabel)
         
         leftHorizontalSpacer = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.buttonLayout.addItem(leftHorizontalSpacer)
+        
+        pageInfoLabel = QtWidgets.QLabel()
+        pageInfoLabel.setText(f"{self.selectedPage} - {self.maxPage} paginas")
+        self.buttonLayout.addWidget( pageInfoLabel)
                 
         first_page_button = QtWidgets.QPushButton("<<")
         first_page_button.setSizePolicy(sizePolicy)
@@ -89,20 +151,20 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
                 
         for x in range(pageRangeIndex, pageRangeIndex + 5):
             if x <= self.maxPage:
-                pageButton = QtWidgets.QPushButton(str(x))
+                pageButton = QtWidgets.QPushButton()
+                pageButton.setText(str(x))
                 pageButton.setMaximumSize(QtCore.QSize(40, 16777215))
                 pageButton.setObjectName(str(x))
                 pageButton.setSizePolicy(sizePolicy)
                 pageButton.clicked.connect(self.updatePage)
-                self.buttonLayout.addWidget(pageButton)
-                                
                 if self.selectedPage == x:
                     pageButton.setEnabled(False)
-        
+                self.buttonLayout.addWidget(pageButton)
+                                
         after_page_button = QtWidgets.QPushButton("...")
         after_page_button.setMaximumSize(QtCore.QSize(40, 16777215))
         after_page_button.setSizePolicy(sizePolicy)
-        self.buttonLayout.addWidget( after_page_button)
+        self.buttonLayout.addWidget( after_page_button )
         after_page_button.clicked.connect(lambda _: self.updatePage(self.selectedPage + 1))
             
         last_page_button = QtWidgets.QPushButton(">>")
@@ -110,27 +172,24 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
         last_page_button.setSizePolicy(sizePolicy)
         self.buttonLayout.addWidget( last_page_button)
         last_page_button.clicked.connect(lambda _: self.updatePage(self.maxPage))
-        
-        # rightHorizontalSpacer = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        # self.buttonLayout.addItem(rightHorizontalSpacer)
-        
+                
         if self.selectedPage == 1:
             first_page_button.setEnabled(False)
             before_page_button.setEnabled(False)
         if self.maxPage == self.selectedPage:
             last_page_button.setEnabled(False)
             after_page_button.setEnabled(False)
-        
     
     def updatePage(self, selectedPage = 0):
         if selectedPage == 0:
             self.selectedPage = int(self.sender().objectName())
         else:
-            self.selectedPage = selectedPage
-        
-        if self.pagingFunction:
-            self.fillTable(self.pagingFunction(page = self.selectedPage))
-            
+            if selectedPage <= self.maxPage:
+                self.selectedPage = selectedPage
+            else:
+                selectedPage = self.maxPage
+                
+        self.fillTable(page = self.selectedPage, limit = self.dataLimit, filter = self.filter)
         
         self.pagingLogic()
         
@@ -142,5 +201,5 @@ class QTableWidgetHandler(QtWidgets.QMainWindow):
                 widget.deleteLater()
             else:
                 layout.takeAt(i)
-        
+
         
